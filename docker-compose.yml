@@ -1,0 +1,17 @@
+services:
+  tiscan:
+    build: .
+    image: tiscan:latest
+    container_name: tiscan
+    restart: unless-stopped
+    # Your API keys. Copy .env.example to .env first (settings saved from the dashboard are kept in the volume).
+    env_file:
+      - path: .env
+        required: false
+    ports:
+      - "127.0.0.1:8787:8787"   # dashboard only reachable from this computer
+    volumes:
+      - tiscan-data:/app/data   # scan history, watchlist, cache, dashboard settings
+
+volumes:
+  tiscan-data:

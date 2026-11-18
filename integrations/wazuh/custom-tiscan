@@ -1,0 +1,135 @@
+#!/var/ossec/framework/python/bin/python3
+"""Wazuh integration: enrich alerts with TIScan verdicts.
+
+Wazuh calls this script with:  <alert_file> <api_key> <hook_url>
+It extracts IOCs from the alert (source IP, URL, file hash), asks TIScan for a verdict and
+writes an enrichment event back into the Wazuh analysis queue, where the rules in
+tiscan_rules.xml raise an alert when the risk is medium, high or critical.
+
+Install: see integrations/wazuh/README.md
+"""
+import ipaddress
+import json
+import os
+import socket
+import sys
+import urllib.error
+import urllib.request
+
+SOCKET_ADDR = "/var/ossec/queue/sockets/queue"
+LOG_FILE = "/var/ossec/logs/integrations.log"
+MAX_IOCS = 3
+TIMEOUT = 60
+
+
+def log(msg):
+    try:
+        with open(LOG_FILE, "a") as fh:
+            fh.write(f"custom-tiscan: {msg}\n")
+    except OSError:
+        pass
+
+
+def dig(obj, path):
+    for part in path.split("."):
+        if not isinstance(obj, dict):
+            return None
+        obj = obj.get(part)
+    return obj
+
+
+def public_ip(value):
+    try:
+        ip = ipaddress.ip_address(str(value))
+    except ValueError:
+        return False
+    return not (ip.is_private or ip.is_loopback or ip.is_reserved or ip.is_multicast or ip.is_link_local)
+
+
+def extract_iocs(alert):
+    iocs = []
+    for path in ("data.srcip", "data.src_ip", "data.source_ip", "data.dstip", "data.dst_ip",
+                 "data.win.eventdata.sourceIp", "data.win.eventdata.destinationIp"):
+        v = dig(alert, path)
+        if v and public_ip(v) and v not in iocs:
+            iocs.append(v)
+    for path in ("data.url", "data.http.url", "data.hostname", "data.win.eventdata.queryName"):
+        v = dig(alert, path)
+        if isinstance(v, str) and v and v not in iocs:
+            iocs.append(v)
+    for path in ("syscheck.sha256_after", "syscheck.md5_after", "data.win.eventdata.hashes"):
+        v = dig(alert, path)
+        if isinstance(v, str) and v:
+            if "SHA256=" in v:
+                v = v.split("SHA256=")[1].split(",")[0]
+            if v not in iocs:
+                iocs.append(v)
+    return iocs[:MAX_IOCS]
+
+
+def scan(hook_url, api_key, ioc):
+    body = json.dumps({"ioc": ioc, "mode": "fast"}).encode()
+    req = urllib.request.Request(
+        hook_url.rstrip("/") + "/api/scan", data=body, method="POST",
+        headers={"Content-Type": "application/json", "X-Requested-With": "tiscan", "X-API-Key": api_key or ""},
+    )
+    with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+        return json.loads(resp.read().decode())
+
+
+def send_event(event, agent):
+    payload = json.dumps(event)
+    if not agent or agent.get("id") == "000":
+        msg = f"1:tiscan:{payload}"
+    else:
+        msg = f"1:[{agent.get('id')}] ({agent.get('name')}) {agent.get('ip', 'any')}->tiscan:{payload}"
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+    try:
+        sock.connect(SOCKET_ADDR)
+        sock.send(msg.encode())
+    finally:
+        sock.close()
+
+
+def main(argv):
+    if len(argv) < 4:
+        log("usage: custom-tiscan <alert_file> <api_key> <hook_url>")
+        return 1
+    alert_file, api_key, hook_url = argv[1], argv[2], argv[3]
+    with open(alert_file) as fh:
+        alert = json.load(fh)
+    rule = alert.get("rule") or {}
+    if str(rule.get("groups", "")).find("tiscan") >= 0:
+        return 0  # never enrich our own events
+    for ioc in extract_iocs(alert):
+        try:
+            report = scan(hook_url, api_key, ioc)
+        except (urllib.error.URLError, ValueError, OSError) as exc:
+            log(f"scan of {ioc} failed: {exc}")
+            continue
+        risk = report.get("risk") or {}
+        flagged = [r["name"] for r in report.get("results", []) if r.get("verdict") in ("malicious", "suspicious")]
+        event = {
+            "integration": "tiscan",
+            "tiscan": {
+                "ioc": report["ioc"]["value"],
+                "type": report["ioc"]["type"],
+                "risk_score": risk.get("score"),
+                "risk_level": risk.get("level"),
+                "flagged_by": ", ".join(flagged),
+                "tags": ", ".join(report.get("tags", [])[:8]),
+                "report": f"{hook_url.rstrip('/')}/#report/{report.get('id')}",
+                "source": {"alert_id": alert.get("id"), "rule": rule.get("id"),
+                           "description": rule.get("description")},
+            },
+        }
+        send_event(event, alert.get("agent"))
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main(sys.argv))
+    except Exception as exc:  # never crash the Wazuh integrator
+        log(f"fatal: {exc}")
+        sys.exit(1)

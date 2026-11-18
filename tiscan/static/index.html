@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIScan - Threat Intelligence Scanner</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="#scan" aria-label="TIScan">
+    <svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true"><path d="M16 2 4 7v8c0 7.2 5.1 13.4 12 15 6.9-1.6 12-7.8 12-15V7L16 2z" fill="currentColor" opacity=".18"/><path d="M16 2 4 7v8c0 7.2 5.1 13.4 12 15 6.9-1.6 12-7.8 12-15V7L16 2z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="15" cy="15" r="5" fill="none" stroke="currentColor" stroke-width="2"/><path d="m18.6 18.6 4 4" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+    <span><b>TIScan</b><small data-i18n="tagline">Threat Intelligence Scanner</small></span>
+  </a>
+  <nav class="tabs" role="tablist">
+    <button type="button" data-tab="scan" data-i18n="nav_scan">Scan</button>
+    <button type="button" data-tab="bulk" data-i18n="nav_bulk">Bulk</button>
+    <button type="button" data-tab="darkweb" data-i18n="nav_darkweb">Dark Web</button>
+    <button type="button" data-tab="ransomware" data-i18n="nav_ransomware">Ransomware</button>
+    <button type="button" data-tab="monitor" data-i18n="nav_monitor">Monitoring</button>
+    <button type="button" data-tab="history" data-i18n="nav_history">History</button>
+    <button type="button" data-tab="sources" data-i18n="nav_sources">Sources</button>
+  </nav>
+  <button type="button" id="lang-toggle" class="btn ghost sm">عربي</button>
+</header>
+
+<main>
+  <!-- Single IOC scan -->
+  <section id="tab-scan" class="tab" hidden>
+    <div class="panel hero">
+      <h1 data-i18n="scan_title"></h1>
+      <p class="muted" data-i18n="scan_hint"></p>
+      <form id="scan-form" class="searchbar" autocomplete="off">
+        <div class="input-wrap">
+          <span class="type-badge" id="scan-type"></span>
+          <input id="scan-input" class="mono" dir="ltr" spellcheck="false" data-i18n-ph="scan_ph" required>
+        </div>
+        <select id="scan-mode" aria-label="Mode">
+          <option value="full" data-i18n="mode_full"></option>
+          <option value="fast" data-i18n="mode_fast"></option>
+        </select>
+        <label class="check"><input type="checkbox" id="scan-nocache"><span data-i18n="nocache"></span></label>
+        <button class="btn primary" type="submit" data-i18n="btn_scan"></button>
+      </form>
+      <div class="examples">
+        <span class="muted" data-i18n="examples"></span>
+        <button type="button" class="chip mono" data-example="185.220.101.1">185.220.101.1</button>
+        <button type="button" class="chip mono" data-example="malware.testcategory.com">malware.testcategory.com</button>
+        <button type="button" class="chip mono" data-example="8.8.8.8">8.8.8.8</button>
+        <button type="button" class="chip mono" data-example="44d88612fea8a8f36de82e1278abb02f">EICAR MD5</button>
+        <button type="button" class="chip mono" data-example="hxxp://example[.]com/login.php">hxxp://example[.]com/login.php</button>
+      </div>
+    </div>
+    <div id="scan-result" class="result"></div>
+  </section>
+
+  <!-- Bulk extraction + scan -->
+  <section id="tab-bulk" class="tab" hidden>
+    <div class="panel hero">
+      <h1 data-i18n="bulk_title"></h1>
+      <p class="muted" data-i18n="bulk_hint"></p>
+      <textarea id="bulk-text" class="mono" dir="ltr" rows="9" spellcheck="false" data-i18n-ph="bulk_ph"></textarea>
+      <div class="row">
+        <button type="button" id="bulk-extract" class="btn primary" data-i18n="extract"></button>
+        <label class="btn ghost file-btn"><input type="file" id="bulk-file" hidden><span data-i18n="load_file"></span></label>
+        <span id="bulk-found" class="muted"></span>
+      </div>
+    </div>
+    <div id="bulk-iocs"></div>
+    <div id="bulk-results"></div>
+  </section>
+
+  <!-- Dark web exposure -->
+  <section id="tab-darkweb" class="tab" hidden>
+    <div class="panel hero dark-hero">
+      <h1 data-i18n="dw_title"></h1>
+      <p class="muted" data-i18n="dw_hint"></p>
+      <form id="dw-form" class="searchbar" autocomplete="off">
+        <div class="input-wrap">
+          <span class="type-badge" id="dw-type"></span>
+          <input id="dw-input" dir="auto" spellcheck="false" data-i18n-ph="dw_ph" required>
+        </div>
+        <label class="check"><input type="checkbox" id="dw-nocache"><span data-i18n="nocache"></span></label>
+        <button class="btn primary" type="submit" data-i18n="dw_search"></button>
+      </form>
+      <p class="note" data-i18n="dw_note"></p>
+    </div>
+    <div id="dw-result" class="result"></div>
+  </section>
+
+  <!-- Ransomware monitor -->
+  <section id="tab-ransomware" class="tab" hidden>
+    <div class="panel hero">
+      <h1 data-i18n="rw_title"></h1>
+      <p class="muted" data-i18n="rw_hint"></p>
+      <div id="rw-countries" class="chips country-chips"></div>
+      <div class="row">
+        <input id="rw-custom" class="mono small-input" maxlength="2" placeholder="XX" dir="ltr" aria-label="Country code">
+        <button type="button" id="rw-add" class="btn ghost sm" data-i18n="add_country"></button>
+        <label class="check"><input type="checkbox" id="rw-recent"><span data-i18n="global_recent"></span></label>
+        <button type="button" id="rw-load" class="btn primary" data-i18n="load"></button>
+      </div>
+    </div>
+    <div id="rw-result"></div>
+  </section>
+
+  <!-- Continuous monitoring -->
+  <section id="tab-monitor" class="tab" hidden>
+    <div class="panel hero">
+      <h1 data-i18n="mon_title"></h1>
+      <p class="muted" id="mon-hint"></p>
+      <form id="mon-form" class="searchbar" autocomplete="off">
+        <div class="input-wrap">
+          <span class="type-badge" id="mon-type"></span>
+          <input id="mon-input" dir="auto" spellcheck="false" data-i18n-ph="mon_ph" required>
+        </div>
+        <input id="mon-label" class="label-input" dir="auto" maxlength="80" data-i18n-ph="mon_label_ph">
+        <button class="btn primary" type="submit" data-i18n="mon_add"></button>
+      </form>
+    </div>
+    <details class="panel" id="mon-channels"></details>
+    <div class="panel">
+      <div class="row space">
+        <h2><span data-i18n="watchlist"></span> <span class="count" id="mon-count"></span></h2>
+        <div class="row"><span class="muted small" id="mon-schedule"></span>
+          <button type="button" class="btn ghost sm" id="mon-check-all" data-i18n="check_all"></button></div>
+      </div>
+      <div id="mon-list"></div>
+    </div>
+    <div class="panel">
+      <div class="row space"><h2 data-i18n="alerts"></h2>
+        <button type="button" class="btn ghost danger sm" id="mon-alerts-clear" data-i18n="clear"></button></div>
+      <div id="mon-alerts"></div>
+    </div>
+  </section>
+
+  <!-- History -->
+  <section id="tab-history" class="tab" hidden>
+    <div class="panel">
+      <div class="row space">
+        <h1 data-i18n="history_title"></h1>
+        <div class="row">
+          <input id="hist-q" type="search" dir="auto" data-i18n-ph="search">
+          <button type="button" id="hist-export" class="btn ghost sm" data-i18n="export_selected"></button>
+          <button type="button" id="hist-clear" class="btn ghost danger sm" data-i18n="clear_all"></button>
+        </div>
+      </div>
+      <div id="hist-list"></div>
+    </div>
+  </section>
+
+  <!-- Sources & settings -->
+  <section id="tab-sources" class="tab" hidden>
+    <div class="panel">
+      <h1 data-i18n="sources_title"></h1>
+      <p class="muted" data-i18n="keys_hint"></p>
+      <div id="src-summary" class="stat-row"></div>
+      <div id="src-list"></div>
+    </div>
+    <div class="grid2">
+      <div class="panel">
+        <h2 data-i18n="cache"></h2>
+        <div id="cache-info" class="muted"></div>
+        <button type="button" id="cache-clear" class="btn ghost sm" data-i18n="clear_cache"></button>
+      </div>
+      <div class="panel">
+        <h2>MISP</h2>
+        <div id="misp-info" class="muted"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot muted small">
+  <span>TIScan <span id="version"></span></span>
+  <span data-i18n="footer_note"></span>
+  <a href="/api/docs" target="_blank" rel="noopener">API</a>
+</footer>
+<div id="toasts" aria-live="polite"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

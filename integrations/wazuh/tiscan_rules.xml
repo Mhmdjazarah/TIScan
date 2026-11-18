@@ -1,0 +1,45 @@
+<!--
+  TIScan enrichment rules for Wazuh.
+  Copy to /var/ossec/etc/rules/tiscan_rules.xml and restart the manager.
+  Rule IDs 100900-100909 - change them if they clash with your local rules.
+-->
+<group name="tiscan,threat_intel,">
+
+  <rule id="100900" level="0">
+    <decoded_as>json</decoded_as>
+    <field name="integration">tiscan</field>
+    <description>TIScan: enrichment event</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="100901" level="3">
+    <if_sid>100900</if_sid>
+    <field name="tiscan.risk_level">^low$|^clean$</field>
+    <description>TIScan: $(tiscan.ioc) looks clean (risk $(tiscan.risk_score)/100)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="100902" level="7">
+    <if_sid>100900</if_sid>
+    <field name="tiscan.risk_level">^medium$</field>
+    <description>TIScan: $(tiscan.ioc) is suspicious (risk $(tiscan.risk_score)/100) - flagged by $(tiscan.flagged_by)</description>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="100903" level="12">
+    <if_sid>100900</if_sid>
+    <field name="tiscan.risk_level">^high$</field>
+    <description>TIScan: $(tiscan.ioc) is MALICIOUS (risk $(tiscan.risk_score)/100) - flagged by $(tiscan.flagged_by)</description>
+    <mitre><id>T1071</id></mitre>
+    <options>no_full_log</options>
+  </rule>
+
+  <rule id="100904" level="14">
+    <if_sid>100900</if_sid>
+    <field name="tiscan.risk_level">^critical$</field>
+    <description>TIScan: $(tiscan.ioc) is CRITICAL threat (risk $(tiscan.risk_score)/100) - flagged by $(tiscan.flagged_by)</description>
+    <mitre><id>T1071</id></mitre>
+    <options>no_full_log</options>
+  </rule>
+
+</group>

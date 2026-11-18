@@ -1,0 +1,23 @@
+# secrets & local data - never commit these
+.env
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# python
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# local tooling & personal drafts
+.claude/
+docs/LINKEDIN_POST.md
+
+# editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

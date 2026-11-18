@@ -45,7 +45,8 @@
       rw_empty: "No victims found for the selected countries.",
       history_title: "Scan history", search: "Search…", clear_all: "Clear history", export_selected: "Export selected to MISP",
       confirm_clear: "Delete all scan history?", when: "When", mode: "Mode", exposure: "Exposure", delete: "Delete", empty: "No scans yet.",
-      sources_title: "Intelligence sources", keys_hint: "Paste your free API keys below to unlock more sources. They are saved in your local .env file and work immediately, no restart needed.",
+      sources_title: "Intelligence sources", keys_hint: "Paste your free API keys below to unlock more sources. ⭐ = most important. Keys are saved in your local .env file and work immediately, no restart needed.",
+      api_keys_title: "API keys", key_from: "Key:", key_unlocks: "Unlocks:", optional: "Optional",
       api_key: "API key", paste_key: "Paste API key", key_saved_ph: "saved - paste a new one to replace", no_key_needed: "No key needed",
       remove: "Remove", key_saved: "Key saved - the source is ready", key_removed: "Key removed", confirm_remove_key: "Remove this API key?",
       configured: "Ready", missing_key: "Needs API key", optional_key: "Works without key", get_key: "Get key", weight: "Weight", types: "IOC types",
@@ -119,7 +120,8 @@
       rw_empty: "لا يوجد ضحايا للدول المحددة.",
       history_title: "سجل الفحوصات", search: "بحث…", clear_all: "مسح السجل", export_selected: "تصدير المحدد إلى MISP",
       confirm_clear: "هل تريد حذف كل سجل الفحوصات؟", when: "الوقت", mode: "الوضع", exposure: "الانكشاف", delete: "حذف", empty: "لا توجد فحوصات بعد.",
-      sources_title: "مصادر الاستخبارات", keys_hint: "الصق مفاتيح الـAPI المجانية بالأسفل لتفعيل مصادر إضافية. تُحفظ في ملف .env على جهازك وتعمل فوراً بدون إعادة تشغيل.",
+      sources_title: "مصادر الاستخبارات", keys_hint: "الصق مفاتيح الـAPI المجانية بالأسفل لتفعيل مصادر إضافية. ⭐ = الأهم. تُحفظ في ملف .env على جهازك وتعمل فوراً بدون إعادة تشغيل.",
+      api_keys_title: "مفاتيح الـAPI", key_from: "المفتاح:", key_unlocks: "بيفتح:", optional: "اختياري",
       api_key: "مفتاح API", paste_key: "الصق المفتاح هنا", key_saved_ph: "محفوظ - الصق مفتاحاً جديداً للاستبدال", no_key_needed: "لا يحتاج مفتاح",
       remove: "إزالة", key_saved: "تم حفظ المفتاح - المصدر جاهز", key_removed: "تمت إزالة المفتاح", confirm_remove_key: "إزالة هذا المفتاح؟",
       configured: "جاهز", missing_key: "يحتاج مفتاح API", optional_key: "يعمل بدون مفتاح", get_key: "احصل على مفتاح", weight: "الوزن", types: "أنواع المؤشرات",
@@ -742,6 +744,45 @@
   }
 
   // ------------------------------------------------------------------ sources
+  const PROVIDERS = {
+    VT_API_KEY: "VirusTotal", ABUSEIPDB_API_KEY: "AbuseIPDB", ABUSECH_API_KEY: "abuse.ch", OTX_API_KEY: "AlienVault OTX",
+    SHODAN_API_KEY: "Shodan", GREYNOISE_API_KEY: "GreyNoise", PULSEDIVE_API_KEY: "Pulsedive", URLSCAN_API_KEY: "urlscan.io",
+    IPINFO_TOKEN: "IPinfo", HIBP_API_KEY: "Have I Been Pwned",
+  };
+
+  // One row per API key (provider), so a key shared by several sources (abuse.ch) appears once, by name.
+  function renderKeys(src) {
+    const keys = new Map();
+    src.filter((s) => s.key_env).forEach((s) => {
+      const k = keys.get(s.key_env) || { env: s.key_env, names: [], signup: s.signup, has: s.has_key, required: s.key_required };
+      k.names.push(s.name);
+      keys.set(s.key_env, k);
+    });
+    const order = ["VT_API_KEY", "ABUSEIPDB_API_KEY", "ABUSECH_API_KEY"];
+    const list = [...keys.values()].sort((a, b) => {
+      const ra = order.indexOf(a.env), rb = order.indexOf(b.env);
+      return (ra < 0 ? 99 : ra) - (rb < 0 ? 99 : rb) || Number(b.required) - Number(a.required);
+    });
+    $("#src-keys").innerHTML = list.map((k) => {
+      const status = k.has ? `<span class="pill v-clean">${t("configured")}</span>`
+        : k.required ? `<span class="pill v-suspicious">${t("missing_key")}</span>` : `<span class="pill v-info">${t("optional")}</span>`;
+      const star = order.includes(k.env) ? " ⭐" : "";
+      return `<div class="src-row">
+        <div><div class="row"><b>${esc(PROVIDERS[k.env] || k.env)}${star}</b>${status}</div>
+          <div class="muted small">${t("key_unlocks")} ${k.names.map(esc).join(" · ")}</div></div>
+        <div class="key-cell">
+          <form class="key-form" data-key="${esc(k.env)}" autocomplete="off">
+            <input type="text" class="secret-input" name="api_key_value" dir="ltr" autocomplete="off" spellcheck="false"
+              autocapitalize="off" data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"
+              placeholder="${esc(k.has ? t("key_saved_ph") : t("paste_key"))}">
+            <button class="btn primary sm" type="submit">${t("save")}</button>
+            ${k.has ? `<button class="btn link sm danger" type="button" data-clear="${esc(k.env)}">${t("remove")}</button>` : ""}
+          </form>
+          ${k.signup ? `<a class="small" href="${esc(k.signup)}" target="_blank" rel="noopener noreferrer">${t("get_key")} ↗</a>` : ""}
+        </div></div>`;
+    }).join("");
+  }
+
   async function loadSources() {
     try {
       const [cfg, stats] = await Promise.all([api("/api/config"), api("/api/stats")]);
@@ -761,21 +802,14 @@
           ${list.map((s) => {
             const status = !s.configured ? `<span class="pill v-suspicious">${t("missing_key")}</span>`
               : s.key_env && !s.has_key ? `<span class="pill v-clean">${t("optional_key")}</span>` : `<span class="pill v-clean">${t("configured")}</span>`;
-            const keyCell = !s.key_env ? `<span class="muted small">${t("no_key_needed")}</span>` : `
-              <form class="key-form" data-key="${esc(s.key_env)}" autocomplete="off">
-                <input type="text" class="secret-input" name="api_key_value" dir="ltr" autocomplete="off" spellcheck="false"
-                  autocapitalize="off" data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"
-                  placeholder="${esc(s.has_key ? t("key_saved_ph") : t("paste_key"))}">
-                <button class="btn primary sm" type="submit">${t("save")}</button>
-                ${s.has_key ? `<button class="btn link sm danger" type="button" data-clear="${esc(s.key_env)}">${t("remove")}</button>` : ""}
-              </form>
-              ${s.signup ? `<a class="small" href="${esc(s.signup)}" target="_blank" rel="noopener noreferrer">${t("get_key")} ↗</a>` : ""}`;
+            const keyNote = s.key_env ? `${t("key_from")} <b>${esc(PROVIDERS[s.key_env] || s.key_env)}</b>` : t("no_key_needed");
             return `<div class="src-row">
-              <div><div class="row"><b>${esc(s.name)}</b>${status}</div><div class="muted small" dir="auto">${esc(s.description)}</div>
-                <div class="chips" style="margin-top:.35rem">${s.types.map((x) => `<span class="type-badge on sm">${esc(typeLabel(x))}</span>`).join("")}</div></div>
-              <div class="key-cell">${keyCell}</div></div>`;
+              <div><div class="row"><b>${esc(s.name)}</b>${status}</div><div class="muted small" dir="auto">${esc(s.description)}</div></div>
+              <div><div class="chips">${s.types.map((x) => `<span class="type-badge on sm">${esc(typeLabel(x))}</span>`).join("")}</div>
+                <div class="muted small" style="margin-top:.35rem">${keyNote}</div></div></div>`;
           }).join("")}</div>`;
       }).join("");
+      renderKeys(src);
       $("#cache-info").textContent = t("cache_info", { n: stats.cache.entries, f: stats.cache.fresh, s: stats.scans });
       $("#misp-info").textContent = cfg.misp.configured ? t("misp_on", { h: cfg.misp.host }) : t("misp_off");
     } catch (err) { toast(err.message, "err"); }
@@ -1106,14 +1140,14 @@
         loadSources();
       } catch (err) { toast(err.message, "err"); }
     };
-    $("#src-list").addEventListener("submit", (e) => {
+    $("#src-keys").addEventListener("submit", (e) => {
       const form = e.target.closest(".key-form");
       if (!form) return;
       e.preventDefault();
       const value = form.elements.namedItem("api_key_value").value.trim();
       if (value) saveKey(form.dataset.key, value);
     });
-    $("#src-list").addEventListener("click", (e) => {
+    $("#src-keys").addEventListener("click", (e) => {
       const b = e.target.closest("[data-clear]");
       if (b && confirm(t("confirm_remove_key"))) saveKey(b.dataset.clear, "");
     });

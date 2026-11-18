@@ -1,0 +1,5 @@
+# One asset per line: a domain, an email address, a public IP or a company name.
+# Optional label after a "|". Lines starting with # are ignored.
+example.com | Main website
+security@example.com | Security mailbox
+Example Corp

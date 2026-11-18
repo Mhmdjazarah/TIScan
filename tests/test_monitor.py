@@ -77,6 +77,63 @@ def test_daily_report_alert():
     assert "no new findings (1 known)" in known["title"] and known["level"] == "info"
 
 
+def test_run_once_keeps_memory_between_runs(monkeypatch, tmp_path):
+    from tiscan.config import settings
+    from tiscan.db import Database
+    from tiscan.monitor import Monitor
+
+    listing = {"date": "2026-11-17", "victim": "Acme", "group": "akira", "match": "domain"}
+    reports = iter([[], [], [rw([listing])]])
+
+    class FakeEngine:
+        async def scan(self, ioc, mode, nocache):
+            return {"id": None, "results": next(reports), "risk": {"score": 0, "level": "clean"}, "exposure": None}
+
+    sent = []
+
+    class FakeNotifier:
+        async def send(self, alert):
+            sent.append(alert["kind"])
+            return {"email": "ok"}
+
+    monkeypatch.setattr(settings, "monitor_daily_report", True)
+    memory = {}
+    for _ in range(3):  # every run starts from an empty, temporary database - like GitHub Actions
+        db = Database(tmp_path / f"run{len(sent)}.db")
+        asyncio.run(Monitor(FakeEngine(), db, FakeNotifier()).run_once([("acme.com", "HQ")], memory))
+        db.close()
+    assert sent == ["baseline", "report", "change"]
+    assert memory["assets"]["acme.com"]["label"] == "HQ"
+    assert any(k.startswith("rw:") for k in memory["assets"]["acme.com"]["state"]["seen"])
+
+
+def test_failed_delivery_is_retried_next_run(tmp_path):
+    from tiscan.db import Database
+    from tiscan.monitor import Monitor
+
+    class FakeEngine:
+        async def scan(self, ioc, mode, nocache):
+            return {"id": None, "results": [], "risk": {"score": 0, "level": "clean"}, "exposure": None}
+
+    class BrokenNotifier:
+        async def send(self, alert):
+            return {"email": "SMTP error"}
+
+    memory = {}
+    db = Database(tmp_path / "a.db")
+    out = asyncio.run(Monitor(FakeEngine(), db, BrokenNotifier()).run_once([("acme.com", None)], memory))
+    db.close()
+    assert out[0]["failed"] and "acme.com" not in memory.get("assets", {})
+
+
+def test_read_watchlist(tmp_path):
+    from tiscan.__main__ import read_watchlist
+
+    f = tmp_path / "w.txt"
+    f.write_text("# assets\nacme.com | Main site\n\nceo@acme.com  # CEO mailbox\n", encoding="utf-8")
+    assert read_watchlist(str(f), ["Acme Corp"]) == [("Acme Corp", None), ("acme.com", "Main site"), ("ceo@acme.com", None)]
+
+
 def test_scheduled_check_sends_daily_report(monkeypatch, tmp_path):
     from tiscan.config import settings
     from tiscan.db import Database

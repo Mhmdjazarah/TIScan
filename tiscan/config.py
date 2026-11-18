@@ -76,6 +76,8 @@ class Settings:
         # Email a status report after every scheduled check, even when nothing new was found.
         self.monitor_daily_report = _bool("MONITOR_DAILY_REPORT", False)
         self.public_url = _str("TISCAN_PUBLIC_URL").rstrip("/")
+        # Report links in alerts; turned off for headless runs (e.g. GitHub Actions) whose database is temporary.
+        self.alert_links = _bool("TISCAN_ALERT_LINKS", True)
 
     def reload(self) -> None:
         self.__init__()

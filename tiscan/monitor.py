@@ -126,6 +126,10 @@ def build_alert(item: dict, report: dict, findings: list[dict], kind: str) -> di
         parts.append(f"Threat risk {risk.get('score')}/100 ({risk.get('level')})")
     if exposure:
         parts.append(f"Dark-web exposure {exposure.get('score')}/100 ({exposure.get('level')})")
+    down = [r["name"] for r in report.get("results", [])
+            if r.get("status") in ("error", "timeout", "rate_limited", "auth_error")]
+    if down:
+        parts.append(f"{len(down)} source(s) unavailable this run: {', '.join(down[:4])}")
     name = item["value"] + (f" ({item['label']})" if item.get("label") else "")
     ordered = sorted(findings, key=lambda f: -SEVERITY_RANK.get(f["severity"], 0))
     level = ordered[0]["severity"] if ordered and kind != "report" else "info"
@@ -142,8 +146,18 @@ def build_alert(item: dict, report: dict, findings: list[dict], kind: str) -> di
         "kind": kind, "level": level, "title": title,
         "summary": " · ".join(parts), "findings": ordered[:MAX_LISTED], "more": max(0, len(ordered) - MAX_LISTED),
         "scan_id": report.get("id"),
-        "link": f"{settings.base_url}/#report/{report.get('id')}" if report.get("id") else "",
+        "link": f"{settings.base_url}/#report/{report.get('id')}" if report.get("id") and settings.alert_links else "",
     }
+
+
+def validate_watch(value: str):
+    """Parse an asset for the watchlist, or raise ValueError."""
+    ioc = detect(value, allow_keyword=True)
+    if ioc.type not in WATCH_TYPES:
+        raise ValueError("Monitoring supports domains, emails, public IPs and company names")
+    if ioc.private:
+        raise ValueError("Private / internal addresses cannot be monitored externally")
+    return ioc
 
 
 class Monitor:
@@ -155,14 +169,7 @@ class Monitor:
 
     # ---- watchlist management ------------------------------------------------------------------
     def add(self, value: str, label: str | None) -> dict:
-        try:
-            ioc = detect(value, allow_keyword=True)
-        except ValueError as exc:
-            raise ValueError(str(exc)) from exc
-        if ioc.type not in WATCH_TYPES:
-            raise ValueError("Monitoring supports domains, emails, public IPs and company names")
-        if ioc.private:
-            raise ValueError("Private / internal addresses cannot be monitored externally")
+        ioc = validate_watch(value)
         if any(w["value"] == ioc.value for w in self.db.list_watch()):
             raise FileExistsError(f"{ioc.value} is already on the watchlist")
         watch_id = self.db.add_watch(ioc.value, ioc.type, (label or "").strip()[:80] or None)
@@ -241,6 +248,44 @@ class Monitor:
             if w["last_checked"] is None or w["last_checked"] + settings.monitor_interval <= now:
                 self.running.add(w["id"])
                 await self._safe_check(w["id"], scheduled=True)
+
+    async def run_once(self, assets: list[tuple[str, str | None]], memory: dict) -> list[dict]:
+        """Headless single pass for schedulers such as GitHub Actions or cron.
+
+        `memory` is the JSON-serialisable state kept between runs: {"assets": {value: {...}}}.
+        The database may be temporary; everything needed to diff against the previous run lives in `memory`.
+        If an alert could not be delivered, that asset's previous state is kept so the alert is retried next run.
+        """
+        saved = memory.setdefault("assets", {})
+        outcome = []
+        for raw, label in assets:
+            entry = {"value": raw, "label": label}
+            try:
+                ioc = validate_watch(raw)
+                entry["value"] = ioc.value
+                existing = next((w for w in self.db.list_watch() if w["value"] == ioc.value), None)
+                watch_id = existing["id"] if existing else self.db.add_watch(ioc.value, ioc.type, label)
+                previous = (saved.get(ioc.value) or {}).get("state")
+                if previous:
+                    self.db.set_watch_state(watch_id, previous)
+                alert = await self.check(watch_id, scheduled=True)
+                row = self.db.get_watch(watch_id) or {}
+                delivery = (alert or {}).get("delivery") or {}
+                failed = bool(alert) and (not delivery or any(v != "ok" for v in delivery.values()))
+                if not failed:
+                    saved[ioc.value] = {
+                        "label": label, "state": json.loads(row.get("state") or "{}"),
+                        "last_checked": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                        "risk": row.get("risk"), "risk_level": row.get("risk_level"),
+                        "exposure": row.get("exposure"), "exposure_level": row.get("exposure_level"),
+                    }
+                entry.update({"alert": (alert or {}).get("kind"), "delivery": delivery, "failed": failed,
+                              "known_findings": row.get("known_findings")})
+            except Exception as exc:  # one bad asset must not stop the others
+                log.warning("monitor run for %s failed: %s", raw, exc)
+                entry.update({"error": f"{type(exc).__name__}: {exc}", "failed": True})
+            outcome.append(entry)
+        return outcome
 
     async def loop(self) -> None:
         await asyncio.sleep(30)

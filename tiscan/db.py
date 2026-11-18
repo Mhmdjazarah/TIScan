@@ -206,6 +206,11 @@ class Database:
                  exposure.get("level"), len(state.get("seen", {})), json.dumps(state), watch_id),
             )
 
+    def set_watch_state(self, watch_id: int, state: dict) -> None:
+        with self._lock:
+            self._conn.execute("UPDATE watchlist SET state = ?, known_findings = ? WHERE id = ?",
+                               (json.dumps(state), len(state.get("seen", {})), watch_id))
+
     def save_watch_error(self, watch_id: int, error: str) -> None:
         with self._lock:
             self._conn.execute("UPDATE watchlist SET last_checked = ?, last_error = ? WHERE id = ?",

@@ -167,8 +167,34 @@ A company mail server works the same way. Click **Send test email** to check del
 Tick **"Also email a daily status report"** if you want an email after every scheduled check, even
 when nothing new was found. That way a quiet inbox never hides a stopped monitor.
 
-> Scheduled checks only run while TIScan is running. For 24/7 monitoring, keep it on a machine or
-> server that stays on. The first check of each asset sends a *baseline* summary of
+> Scheduled checks in the dashboard only run while TIScan is running. For monitoring that keeps going
+> while your computer is off, use GitHub Actions (below).
+
+## 24/7 monitoring with GitHub Actions (free)
+
+GitHub can run TIScan's monitoring for you once a day, for free, on its own servers. You get the same
+email alerts and daily report, and no server or credit card is needed.
+
+1. Create a new **private** repository on GitHub. It will hold your watchlist and what TIScan has already seen.
+2. Add two files to it, copied from [`examples/github-actions`](examples/github-actions):
+   * `watchlist.txt`: your domains, emails, public IPs or company names, one per line.
+   * `.github/workflows/tiscan-monitor.yml`: the workflow, copied as is.
+3. In that repository open **Settings → Secrets and variables → Actions → New repository secret** and add:
+
+   | Secret | Value |
+   |---|---|
+   | `SMTP_USER` | your Gmail address |
+   | `SMTP_PASSWORD` | your Gmail App Password |
+   | `ALERT_EMAIL_TO` | where alerts go (comma-separated) |
+   | `VT_API_KEY`, `ABUSEIPDB_API_KEY`, `ABUSECH_API_KEY`, … | optional: your API keys |
+
+4. Open the **Actions** tab, choose **TIScan monitor**, and click **Run workflow** to test it. The first run emails
+   a baseline summary. After that it runs every day at 08:00 Jordan time (05:00 UTC). It sends a daily report, and
+   an alert as soon as something new appears.
+
+The job records what it has seen in `state/monitor-state.json` in your private repo, so each alert is sent once.
+If an email fails, the job turns red and GitHub notifies you. That run's findings are retried the next day.
+A daily run takes 1 to 3 minutes, well inside the free Actions allowance for private repositories. The first check of each asset sends a *baseline* summary of
 what already exists. After that you only hear about changes. Every alert is also kept on the Monitoring page,
 along with which channels it reached. The settings are saved in `.env`.
 
@@ -261,3 +287,4 @@ VirusTotal, AbuseIPDB, Shodan, urlscan.io and IPinfo. Thank you.
    افتح ملف `.env` والصق كل مفتاح بعد علامة `=` مباشرة، بدون مسافات أو علامات تنصيص. بعدها أعد تشغيل الأداة. تاب **المصادر** بيبينلك أي مصدر جاهز وأي واحد ناقصه مفتاح.
 5. اللغة بتتغير من زر "English / عربي" فوق.
 6. للمراقبة: افتح تاب "المراقبة" وحط دومين شركتك. بعدها اضبط التنبيهات على الإيميل (Gmail مع App Password). تيليجرام مش مستخدم لأنه محجوب بالأردن.
+7. **مراقبة 24 ساعة والجهاز طافي:** GitHub Actions بتشغّل المراقبة ببلاش كل يوم الساعة 8 الصبح بتوقيت الأردن، وبتبعت الإيميل. الخطوات بقسم [24/7 monitoring with GitHub Actions](#247-monitoring-with-github-actions-free).

@@ -259,6 +259,21 @@ class EmailConfig(BaseModel):
     daily_report: bool | None = None
 
 
+class KeyBody(BaseModel):
+    name: str = Field(..., pattern=r"^[A-Z0-9_]{3,40}$")
+    value: str = Field("", max_length=300, pattern=r"^\S*$")
+
+
+@app.post("/api/keys")
+async def api_set_key(body: KeyBody, request: Request):
+    """Save (or clear, with an empty value) one source API key into .env. Takes effect immediately."""
+    allowed = {s.key_env for s in engine(request).sources if s.key_env}
+    if body.name not in allowed:
+        raise HTTPException(status_code=400, detail="Unknown API key name")
+    update_env({body.name: body.value.strip()})
+    return {"name": body.name, "configured": bool(body.value.strip())}
+
+
 def monitor(request: Request) -> Monitor:
     return request.app.state.monitor
 

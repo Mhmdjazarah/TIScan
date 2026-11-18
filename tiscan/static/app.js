@@ -45,7 +45,9 @@
       rw_empty: "No victims found for the selected countries.",
       history_title: "Scan history", search: "Search…", clear_all: "Clear history", export_selected: "Export selected to MISP",
       confirm_clear: "Delete all scan history?", when: "When", mode: "Mode", exposure: "Exposure", delete: "Delete", empty: "No scans yet.",
-      sources_title: "Intelligence sources", keys_hint: "Add free API keys to the .env file in the project folder and restart TIScan to unlock more sources.",
+      sources_title: "Intelligence sources", keys_hint: "Paste your free API keys below to unlock more sources. They are saved in your local .env file and work immediately, no restart needed.",
+      api_key: "API key", paste_key: "Paste API key", key_saved_ph: "saved - paste a new one to replace", no_key_needed: "No key needed",
+      remove: "Remove", key_saved: "Key saved - the source is ready", key_removed: "Key removed", confirm_remove_key: "Remove this API key?",
       configured: "Ready", missing_key: "Needs API key", optional_key: "Works without key", get_key: "Get key", weight: "Weight", types: "IOC types",
       total_sources: "Sources", ready_sources: "Ready", need_keys: "Need a key", darkweb_sources: "Dark-web sources",
       cache: "Cache", cache_info: "{n} cached responses ({f} fresh). {s} scans in history.", clear_cache: "Clear cache", cache_cleared: "Cache cleared",
@@ -117,7 +119,9 @@
       rw_empty: "لا يوجد ضحايا للدول المحددة.",
       history_title: "سجل الفحوصات", search: "بحث…", clear_all: "مسح السجل", export_selected: "تصدير المحدد إلى MISP",
       confirm_clear: "هل تريد حذف كل سجل الفحوصات؟", when: "الوقت", mode: "الوضع", exposure: "الانكشاف", delete: "حذف", empty: "لا توجد فحوصات بعد.",
-      sources_title: "مصادر الاستخبارات", keys_hint: "أضف مفاتيح API المجانية في ملف .env داخل مجلد المشروع ثم أعد تشغيل الأداة لتفعيل مصادر إضافية.",
+      sources_title: "مصادر الاستخبارات", keys_hint: "الصق مفاتيح الـAPI المجانية بالأسفل لتفعيل مصادر إضافية. تُحفظ في ملف .env على جهازك وتعمل فوراً بدون إعادة تشغيل.",
+      api_key: "مفتاح API", paste_key: "الصق المفتاح هنا", key_saved_ph: "محفوظ - الصق مفتاحاً جديداً للاستبدال", no_key_needed: "لا يحتاج مفتاح",
+      remove: "إزالة", key_saved: "تم حفظ المفتاح - المصدر جاهز", key_removed: "تمت إزالة المفتاح", confirm_remove_key: "إزالة هذا المفتاح؟",
       configured: "جاهز", missing_key: "يحتاج مفتاح API", optional_key: "يعمل بدون مفتاح", get_key: "احصل على مفتاح", weight: "الوزن", types: "أنواع المؤشرات",
       total_sources: "المصادر", ready_sources: "جاهزة", need_keys: "تحتاج مفتاح", darkweb_sources: "مصادر الدارك ويب",
       cache: "الكاش", cache_info: "{n} استجابة مخزّنة ({f} حديثة). {s} فحص في السجل.", clear_cache: "مسح الكاش", cache_cleared: "تم مسح الكاش",
@@ -753,15 +757,23 @@
       $("#src-list").innerHTML = cats.map((c) => {
         const list = src.filter((s) => s.category === c);
         if (!list.length) return "";
-        return `<h2 style="margin-top:1.2rem">${esc(catLabel(c))}</h2><div class="table-wrap"><table class="tbl"><thead><tr><th>${t("source")}</th><th>${t("types")}</th><th></th><th>${t("weight")}</th><th></th></tr></thead><tbody>
+        return `<h2 style="margin-top:1.2rem">${esc(catLabel(c))}</h2><div class="src-rows">
           ${list.map((s) => {
             const status = !s.configured ? `<span class="pill v-suspicious">${t("missing_key")}</span>`
               : s.key_env && !s.has_key ? `<span class="pill v-clean">${t("optional_key")}</span>` : `<span class="pill v-clean">${t("configured")}</span>`;
-            return `<tr><td><b>${esc(s.name)}</b><div class="muted small">${esc(s.description)}</div>${s.key_env ? `<code class="small">${esc(s.key_env)}</code>` : ""}</td>
-              <td><div class="chips">${s.types.map((x) => `<span class="type-badge on sm">${esc(typeLabel(x))}</span>`).join("")}</div></td>
-              <td>${status}</td><td class="num">${s.weight ? s.weight.toFixed(2) : "-"}</td>
-              <td>${s.signup && s.key_env ? `<a href="${esc(s.signup)}" target="_blank" rel="noopener noreferrer">${t("get_key")} ↗</a>` : ""}</td></tr>`;
-          }).join("")}</tbody></table></div>`;
+            const keyCell = !s.key_env ? `<span class="muted small">${t("no_key_needed")}</span>` : `
+              <form class="key-form" data-key="${esc(s.key_env)}" autocomplete="off">
+                <input type="password" name="value" dir="ltr" autocomplete="off" spellcheck="false"
+                  placeholder="${esc(s.has_key ? t("key_saved_ph") : t("paste_key"))}">
+                <button class="btn primary sm" type="submit">${t("save")}</button>
+                ${s.has_key ? `<button class="btn link sm danger" type="button" data-clear="${esc(s.key_env)}">${t("remove")}</button>` : ""}
+              </form>
+              ${s.signup ? `<a class="small" href="${esc(s.signup)}" target="_blank" rel="noopener noreferrer">${t("get_key")} ↗</a>` : ""}`;
+            return `<div class="src-row">
+              <div><div class="row"><b>${esc(s.name)}</b>${status}</div><div class="muted small" dir="auto">${esc(s.description)}</div>
+                <div class="chips" style="margin-top:.35rem">${s.types.map((x) => `<span class="type-badge on sm">${esc(typeLabel(x))}</span>`).join("")}</div></div>
+              <div class="key-cell">${keyCell}</div></div>`;
+          }).join("")}</div>`;
       }).join("");
       $("#cache-info").textContent = t("cache_info", { n: stats.cache.entries, f: stats.cache.fresh, s: stats.scans });
       $("#misp-info").textContent = cfg.misp.configured ? t("misp_on", { h: cfg.misp.host }) : t("misp_off");
@@ -1085,6 +1097,24 @@
     $("#hist-clear").addEventListener("click", async () => {
       if (!confirm(t("confirm_clear"))) return;
       try { await api("/api/history", { method: "DELETE" }); loadHistory(); } catch (err) { toast(err.message, "err"); }
+    });
+    const saveKey = async (name, value) => {
+      try {
+        const res = await api("/api/keys", { method: "POST", body: { name, value } });
+        toast(res.configured ? t("key_saved") : t("key_removed"), "ok");
+        loadSources();
+      } catch (err) { toast(err.message, "err"); }
+    };
+    $("#src-list").addEventListener("submit", (e) => {
+      const form = e.target.closest(".key-form");
+      if (!form) return;
+      e.preventDefault();
+      const value = form.elements.namedItem("value").value.trim();
+      if (value) saveKey(form.dataset.key, value);
+    });
+    $("#src-list").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-clear]");
+      if (b && confirm(t("confirm_remove_key"))) saveKey(b.dataset.clear, "");
     });
     $("#cache-clear").addEventListener("click", async () => {
       try { await api("/api/cache", { method: "DELETE" }); toast(t("cache_cleared"), "ok"); loadSources(); } catch (err) { toast(err.message, "err"); }

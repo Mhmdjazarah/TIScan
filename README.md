@@ -102,10 +102,8 @@ Wazuh alert enrichment.
 
 **How to add a key**
 
-1. Run TIScan once (`run.bat` / `./run.sh`). It creates a `.env` file from `.env.example`.
-2. Open `.env` in any text editor and paste each key right after the `=`, with no quotes or spaces:
-   `VT_API_KEY=abc123...`
-3. Restart TIScan. The **Sources** tab shows every source as *Ready* or *Needs API key*, with a *Get key* link next to each one.
+* **Easiest:** open the **Sources** tab in the dashboard. Every source has a *Get key* link and a field where you paste your key. Click **Save** and the key works immediately, with no restart.
+* **Or edit the file:** open `.env` (it is created on the first run) and paste each key right after the `=`, with no quotes or spaces, for example `VT_API_KEY=abc123...`. Then restart TIScan.
 
 Never share your keys and never commit `.env`. It is already listed in `.gitignore`.
 
@@ -284,7 +282,7 @@ VirusTotal, AbuseIPDB, Shodan, urlscan.io and IPinfo. Thank you.
    - AbuseIPDB: [abuseipdb.com/register](https://www.abuseipdb.com/register)
    - abuse.ch: [auth.abuse.ch](https://auth.abuse.ch/)
 
-   افتح ملف `.env` والصق كل مفتاح بعد علامة `=` مباشرة، بدون مسافات أو علامات تنصيص. بعدها أعد تشغيل الأداة. تاب **المصادر** بيبينلك أي مصدر جاهز وأي واحد ناقصه مفتاح.
+   أسهل طريقة: افتح تاب **المصادر** بالداشبورد، والصق كل مفتاح بخانته، واضغط **حفظ**. المفتاح بيشتغل فوراً بدون إعادة تشغيل.
 5. اللغة بتتغير من زر "English / عربي" فوق.
 6. للمراقبة: افتح تاب "المراقبة" وحط دومين شركتك. بعدها اضبط التنبيهات على الإيميل (Gmail مع App Password). تيليجرام مش مستخدم لأنه محجوب بالأردن.
 7. **مراقبة 24 ساعة والجهاز طافي:** GitHub Actions بتشغّل المراقبة ببلاش كل يوم الساعة 8 الصبح بتوقيت الأردن، وبتبعت الإيميل. الخطوات بقسم [24/7 monitoring with GitHub Actions](#247-monitoring-with-github-actions-free).

@@ -279,8 +279,15 @@ class Monitor:
                         "risk": row.get("risk"), "risk_level": row.get("risk_level"),
                         "exposure": row.get("exposure"), "exposure_level": row.get("exposure_level"),
                     }
+                scan = self.db.get_scan(row["last_scan_id"]) if row.get("last_scan_id") else None
+                statuses = [r.get("status") for r in (scan or {}).get("results", [])]
                 entry.update({"alert": (alert or {}).get("kind"), "delivery": delivery, "failed": failed,
-                              "known_findings": row.get("known_findings")})
+                              "known_findings": row.get("known_findings"),
+                              "sources": {"answered": sum(s in ("ok", "not_found") for s in statuses),
+                                          "total": len(statuses),
+                                          "no_key": statuses.count("no_key"),
+                                          "errors": sum(s in ("error", "timeout", "rate_limited", "auth_error")
+                                                        for s in statuses)}})
             except Exception as exc:  # one bad asset must not stop the others
                 log.warning("monitor run for %s failed: %s", raw, exc)
                 entry.update({"error": f"{type(exc).__name__}: {exc}", "failed": True})

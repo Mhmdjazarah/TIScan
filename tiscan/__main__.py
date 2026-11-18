@@ -151,8 +151,11 @@ async def monitor_once(watchlist: str | None, extra: list[str], state_path: str)
             print(f"  FAILED  {r['value']}: {r['error']}")
             continue
         sent = ", ".join(f"{'ok' if v == 'ok' else 'FAILED: ' + v}" for v in r["delivery"].values()) or "-"
+        src = r.get("sources") or {}
         print(f"  {'FAILED' if r['failed'] else 'ok':<7} {r['value']}: alert={r['alert'] or 'none'} "
-              f"email={sent} known_findings={r.get('known_findings')}")
+              f"email={sent} known_findings={r.get('known_findings')} "
+              f"sources={src.get('answered', '?')}/{src.get('total', '?')} answered, "
+              f"{src.get('no_key', 0)} missing key, {src.get('errors', 0)} errors")
     return 1 if any(r.get("failed") for r in results) else 0
 
 

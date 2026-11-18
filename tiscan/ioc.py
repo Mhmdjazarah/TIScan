@@ -34,6 +34,18 @@ _MULTI_SUFFIXES = {
     "com.tn", "gov.tn", "co.ma", "gov.ma", "ac.ma", "com.dz", "gov.dz", "com.sd", "gov.sd",
 }
 
+# Shared hosting platforms (Public Suffix List "private" section): each customer subdomain is its own site.
+# Without these, ramixa-site.onrender.com would be looked up as onrender.com - every Render customer at once.
+_PLATFORM_SUFFIXES = {
+    "onrender.com", "herokuapp.com", "vercel.app", "netlify.app", "github.io", "gitlab.io", "pages.dev",
+    "workers.dev", "web.app", "firebaseapp.com", "azurewebsites.net", "azurestaticapps.net", "cloudfront.net",
+    "appspot.com", "fly.dev", "railway.app", "up.railway.app", "koyeb.app", "deno.dev", "glitch.me", "repl.co",
+    "replit.app", "replit.dev", "blogspot.com", "wordpress.com", "wixsite.com", "weebly.com", "webflow.io",
+    "framer.website", "carrd.co", "notion.site", "myshopify.com", "surge.sh", "ngrok.io", "ngrok-free.app",
+    "trycloudflare.com", "r2.dev", "supabase.co", "pythonanywhere.com", "000webhostapp.com", "hf.space",
+}
+_SUFFIXES = _MULTI_SUFFIXES | _PLATFORM_SUFFIXES
+
 # File extensions that are also TLDs and cause false positives when extracting from text.
 _EXTRACT_TLD_DENY = {"zip", "mov", "md", "py", "exe", "dll"}
 
@@ -89,11 +101,11 @@ def defang(value: str, ioc_type: str) -> str:
 
 
 def registered_domain(host: str) -> str:
+    """The domain an organisation actually controls: example.co.uk, bank.com.jo, mysite.onrender.com."""
     labels = host.lower().rstrip(".").split(".")
-    if len(labels) <= 2:
-        return ".".join(labels)
-    if ".".join(labels[-2:]) in _MULTI_SUFFIXES:
-        return ".".join(labels[-3:])
+    for n in (3, 2):
+        if len(labels) > n and ".".join(labels[-n:]) in _SUFFIXES:
+            return ".".join(labels[-(n + 1):])
     return ".".join(labels[-2:])
 
 

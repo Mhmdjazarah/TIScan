@@ -46,6 +46,11 @@ def test_refang_and_defang_roundtrip():
     ("mail.gov.sa", "mail.gov.sa"),
     ("portal.moh.gov.sa", "moh.gov.sa"),
     ("example.co.uk", "example.co.uk"),
+    ("ramixa-site.onrender.com", "ramixa-site.onrender.com"),
+    ("api.ramixa-site.onrender.com", "ramixa-site.onrender.com"),
+    ("user.github.io", "user.github.io"),
+    ("app.up.railway.app", "app.up.railway.app"),
+    ("onrender.com", "onrender.com"),
 ])
 def test_registered_domain(host, apex):
     assert registered_domain(host) == apex

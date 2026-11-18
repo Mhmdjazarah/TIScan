@@ -9,7 +9,7 @@ import html
 import smtplib
 import ssl
 from email.message import EmailMessage
-from email.utils import formatdate, make_msgid
+from email.utils import formataddr, formatdate, make_msgid
 
 from .config import settings
 
@@ -73,7 +73,7 @@ def _smtp_send(msg: EmailMessage) -> None:
 async def send_email(alert: dict) -> None:
     msg = EmailMessage()
     msg["Subject"] = f"[TIScan] {alert['title']}"
-    msg["From"] = settings.smtp_from
+    msg["From"] = formataddr((settings.smtp_from_name, settings.smtp_from)) if settings.smtp_from_name else settings.smtp_from
     msg["To"] = ", ".join(settings.alert_email_to)
     msg["Date"] = formatdate(localtime=True)
     msg["Message-ID"] = make_msgid("tiscan")

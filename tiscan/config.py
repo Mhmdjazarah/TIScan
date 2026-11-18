@@ -68,6 +68,7 @@ class Settings:
         self.smtp_user = _str("SMTP_USER")
         self.smtp_password = _str("SMTP_PASSWORD")
         self.smtp_from = _str("SMTP_FROM") or self.smtp_user
+        self.smtp_from_name = _str("SMTP_FROM_NAME", "TIScan")   # display name shown in the inbox
         self.alert_email_to = [e.strip() for e in _str("ALERT_EMAIL_TO").split(",") if e.strip()]
 
         self.monitor_enabled = _bool("MONITOR_ENABLED", True)

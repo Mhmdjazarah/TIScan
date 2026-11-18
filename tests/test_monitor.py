@@ -159,6 +159,19 @@ def test_scheduled_check_sends_daily_report(monkeypatch, tmp_path):
     db.close()
 
 
+def test_email_sender_display_name(monkeypatch):
+    from tiscan.config import settings
+    from tiscan import notify
+
+    captured = {}
+    monkeypatch.setattr(notify, "_smtp_send", lambda msg: captured.update(frm=msg["From"]))
+    monkeypatch.setattr(settings, "smtp_from", "me@example.com")
+    monkeypatch.setattr(settings, "smtp_from_name", "TIScan")
+    monkeypatch.setattr(settings, "alert_email_to", ["team@example.com"])
+    asyncio.run(notify.send_email({"title": "t", "findings": []}))
+    assert captured["frm"] == "TIScan <me@example.com>"
+
+
 def test_notifier_without_email_returns_empty(monkeypatch):
     from tiscan.config import settings
     from tiscan.notify import Notifier

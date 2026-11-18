@@ -763,7 +763,8 @@
               : s.key_env && !s.has_key ? `<span class="pill v-clean">${t("optional_key")}</span>` : `<span class="pill v-clean">${t("configured")}</span>`;
             const keyCell = !s.key_env ? `<span class="muted small">${t("no_key_needed")}</span>` : `
               <form class="key-form" data-key="${esc(s.key_env)}" autocomplete="off">
-                <input type="password" name="value" dir="ltr" autocomplete="off" spellcheck="false"
+                <input type="text" class="secret-input" name="api_key_value" dir="ltr" autocomplete="off" spellcheck="false"
+                  autocapitalize="off" data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"
                   placeholder="${esc(s.has_key ? t("key_saved_ph") : t("paste_key"))}">
                 <button class="btn primary sm" type="submit">${t("save")}</button>
                 ${s.has_key ? `<button class="btn link sm danger" type="button" data-clear="${esc(s.key_env)}">${t("remove")}</button>` : ""}
@@ -1109,7 +1110,7 @@
       const form = e.target.closest(".key-form");
       if (!form) return;
       e.preventDefault();
-      const value = form.elements.namedItem("value").value.trim();
+      const value = form.elements.namedItem("api_key_value").value.trim();
       if (value) saveKey(form.dataset.key, value);
     });
     $("#src-list").addEventListener("click", (e) => {
